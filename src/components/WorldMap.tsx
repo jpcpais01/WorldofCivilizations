@@ -203,8 +203,9 @@ export default function WorldMap() {
     <div className="relative h-full w-full select-none overflow-hidden bg-[#161b22]">
       <ComposableMap
         width={800}
-        height={420}
-        projectionConfig={{ scale: 155 }}
+        height={550}
+        projection="geoMercator"
+        projectionConfig={{ scale: 127, center: [0, 40] }}
         preserveAspectRatio="xMidYMid slice"
         className="h-full w-full"
         style={{ width: "100%", height: "100%" }}
