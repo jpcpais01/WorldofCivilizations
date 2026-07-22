@@ -15,7 +15,7 @@ import { useMapStore } from "@/lib/store";
 import { getCountryKey, getCountryName, isPaintable, COUNTRIES_TOPOLOGY_URL } from "@/lib/countries";
 import { DEFAULT_BORDER_COLOR } from "@/lib/palette";
 import { splitCountryByLines, type SplitPiece } from "@/lib/splitCountries";
-import type { CustomBorder, Region } from "@/lib/types";
+import type { CustomBorder, Region, Tier } from "@/lib/types";
 
 const UNASSIGNED_FILL = "#2a3441";
 const UNASSIGNED_HOVER = "#3a4759";
@@ -81,6 +81,7 @@ function polygonToPath(
 function SplitPieceLayer({
   splitsByCountry,
   regionsFor,
+  mapTier,
   drawMode,
   cursor,
   onClick,
@@ -90,6 +91,7 @@ function SplitPieceLayer({
 }: {
   splitsByCountry: Record<string, SplitPiece[]>;
   regionsFor: (id: string) => { tier1?: Region; tier2?: Region };
+  mapTier: Tier;
   drawMode: boolean;
   cursor: string;
   onClick: (id: string) => void;
@@ -104,7 +106,7 @@ function SplitPieceLayer({
       {Object.entries(splitsByCountry).map(([countryKey, pieces]) =>
         pieces.map((piece, i) => {
           const { tier1, tier2 } = regionsFor(piece.id);
-          const active = tier2 ?? tier1;
+          const active = mapTier === 2 ? tier2 : tier1;
           const name = `${getCountryName(countryKey)} · part ${i + 1}`;
           const fill = active ? active.color : UNASSIGNED_FILL;
 
@@ -234,6 +236,8 @@ export default function WorldMap() {
   const activeRegionId = useMapStore((s) => s.activeRegionId);
   const paintCountry = useMapStore((s) => s.paintCountry);
   const setSelectedCountry = useMapStore((s) => s.setSelectedCountry);
+  const mapTier = useMapStore((s) => s.mapTier);
+  const setMapTier = useMapStore((s) => s.setMapTier);
 
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -331,7 +335,7 @@ export default function WorldMap() {
                 if (!isPaintable(key)) return null;
                 if (splitsByCountry[key]) return null; // rendered by SplitPieceLayer instead
                 const { tier1, tier2 } = regionsFor(key);
-                const active = tier2 ?? tier1;
+                const active = mapTier === 2 ? tier2 : tier1;
                 const name = getCountryName(key, geo.properties?.name as string | undefined);
                 const fill = active ? active.color : UNASSIGNED_FILL;
 
@@ -371,6 +375,7 @@ export default function WorldMap() {
           <SplitPieceLayer
             splitsByCountry={splitsByCountry}
             regionsFor={regionsFor}
+            mapTier={mapTier}
             drawMode={drawMode}
             cursor={cursor}
             onClick={handleClick}
@@ -386,6 +391,25 @@ export default function WorldMap() {
           {drawMode && <DrawingOverlay />}
         </ZoomableGroup>
       </ComposableMap>
+
+      <div className="absolute top-3 right-3 flex overflow-hidden rounded-md border border-white/10 bg-black/50 text-xs backdrop-blur">
+        <button
+          onClick={() => setMapTier(1)}
+          className={`px-2.5 py-1.5 font-medium transition ${
+            mapTier === 1 ? "bg-white/20 text-white" : "text-white/60 hover:bg-white/10"
+          }`}
+        >
+          Tier 1
+        </button>
+        <button
+          onClick={() => setMapTier(2)}
+          className={`px-2.5 py-1.5 font-medium transition ${
+            mapTier === 2 ? "bg-white/20 text-white" : "text-white/60 hover:bg-white/10"
+          }`}
+        >
+          Tier 2
+        </button>
+      </div>
 
       {tooltip && (
         <div

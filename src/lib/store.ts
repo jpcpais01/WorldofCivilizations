@@ -22,10 +22,12 @@ interface MapStore {
   selectedCountryId: string | null;
   hasHydrated: boolean;
   sidebarOpen: boolean;
+  mapTier: Tier;
 
   setHasHydrated: (v: boolean) => void;
   setSidebarOpen: (v: boolean) => void;
   toggleSidebar: () => void;
+  setMapTier: (tier: Tier) => void;
   addRegion: (name: string, opts?: AddRegionOptions) => string;
   updateRegion: (id: string, patch: Partial<Pick<Region, "name" | "color" | "description">>) => void;
   deleteRegion: (id: string) => void;
@@ -70,10 +72,12 @@ export const useMapStore = create<MapStore>()(
       selectedCountryId: null,
       hasHydrated: false,
       sidebarOpen: false,
+      mapTier: 1,
 
       setHasHydrated: (v) => set({ hasHydrated: v }),
       setSidebarOpen: (v) => set({ sidebarOpen: v }),
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+      setMapTier: (tier) => set({ mapTier: tier }),
 
       addRegion: (name, opts) => {
         const id = uuid();
@@ -110,7 +114,11 @@ export const useMapStore = create<MapStore>()(
           };
         }),
 
-      setActiveRegion: (id) => set({ activeRegionId: id }),
+      setActiveRegion: (id) =>
+        set((s) => {
+          const region = id ? s.regions.find((r) => r.id === id) : undefined;
+          return { activeRegionId: id, mapTier: region ? region.tier : s.mapTier };
+        }),
 
       togglePaintMode: () => set((s) => ({ paintMode: !s.paintMode, drawMode: false })),
 
