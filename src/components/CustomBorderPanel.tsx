@@ -45,22 +45,34 @@ function CustomBorderRow({ border }: { border: CustomBorder }) {
 
 export default function CustomBorderPanel() {
   const customBorders = useMapStore((s) => s.customBorders);
+  const [isOpen, setIsOpen] = useState(false);
 
   if (customBorders.length === 0) return null;
 
   return (
-    <div className="border-t border-white/10 px-3 py-3">
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/50">
-        Border Lines ({customBorders.length})
-      </h2>
-      <p className="mb-2 text-xs text-white/40">
-        Drawn lines split whichever countries they cross, so you can paint just one side.
-      </p>
-      <div className="max-h-48 space-y-1.5 overflow-y-auto">
-        {customBorders.map((border) => (
-          <CustomBorderRow key={border.id} border={border} />
-        ))}
-      </div>
+    <div className="border-t border-white/10">
+      <button
+        onClick={() => setIsOpen((v) => !v)}
+        className="flex w-full items-center justify-between px-3 py-3 text-left hover:bg-white/[0.03]"
+      >
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-white/50">
+          Border Lines ({customBorders.length})
+        </h2>
+        <span className="text-white/30">{isOpen ? "▾" : "▸"}</span>
+      </button>
+
+      {isOpen && (
+        <div className="px-3 pb-3">
+          <p className="mb-2 text-xs text-white/40">
+            Drawn lines split whichever countries they cross, so you can paint just one side.
+          </p>
+          <div className="max-h-48 space-y-1.5 overflow-y-auto">
+            {customBorders.map((border) => (
+              <CustomBorderRow key={border.id} border={border} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
