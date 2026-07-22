@@ -1,0 +1,38 @@
+{
+  "name": "world-painter",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "d3-geo": "^3.1.1",
+    "idb-keyval": "^6.3.0",
+    "next": "16.2.11",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-simple-maps": "^3.0.0",
+    "topojson-client": "^3.1.0",
+    "uuid": "^14.0.1",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/d3-geo": "^3.1.0",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/react-simple-maps": "^3.0.6",
+    "@types/topojson-client": "^3.1.5",
+    "@types/uuid": "^10.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.11",
+    "i18n-iso-countries": "^7.14.0",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "world-atlas": "^2.0.2"
+  }
+}
