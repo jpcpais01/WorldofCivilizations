@@ -168,7 +168,7 @@ function CustomLinesLayer({ customBorders }: { customBorders: CustomBorder[] }) 
             points={pointsAttr}
             fill="none"
             stroke={color}
-            strokeWidth={0.6 / k}
+            strokeWidth={0.2 / k}
             strokeLinecap="round"
             strokeLinejoin="round"
             style={{ pointerEvents: "none" }}
@@ -215,7 +215,7 @@ function DrawingOverlay() {
           points={pointsAttr}
           fill="none"
           stroke={DEFAULT_BORDER_COLOR}
-          strokeWidth={0.6 / k}
+          strokeWidth={0.2 / k}
           strokeLinecap="round"
           strokeLinejoin="round"
         />
