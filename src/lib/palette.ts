@@ -17,7 +17,7 @@ export const REGION_PALETTE = [
   "#ffca3a", // gold
 ];
 
-export const DEFAULT_BORDER_COLOR = "#f2c14e";
+export const DEFAULT_BORDER_COLOR = "#000000";
 
 export function nextPaletteColor(usedColors: string[]): string {
   const unused = REGION_PALETTE.find((c) => !usedColors.includes(c));
