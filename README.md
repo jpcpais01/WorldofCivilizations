@@ -8,17 +8,26 @@ and see it all rendered on a clean interactive world map.
 
 - **Real country borders** — all ~238 UN-recognized countries and territories,
   from the Natural Earth dataset (via `world-atlas`, 1:50m resolution).
-- **Paint mode** — pick a region, click countries to add them to it; an erase
-  mode to unassign.
-- **Regions** — create unlimited regions/sub-regions, each with its own color,
-  name, and description.
+- **Custom borders** — draw your own shapes with a connected-line-segment tool
+  (click to place points, Finish to close it into a polygon). Drawn shapes
+  behave exactly like countries: paintable, nameable, and paintable into any
+  region.
+- **Paint mode** — pick a region, click countries or custom shapes to add them
+  to it; an erase mode to unassign.
+- **Tiered regions** — regions come in two tiers: Tier 1 (e.g. continents) and
+  Tier 2 (sub-regions that live inside a Tier 1). A country/shape can hold one
+  of each at once — painting a Tier 2 region automatically nests it inside its
+  parent Tier 1 region unless the country already belongs to a different one.
+  The map shows the Tier 2 color on top when both are set.
+- **Regions** — create unlimited regions, each with its own color, name, and
+  description.
 - **Photos** — upload photos per region (auto-resized/compressed client-side),
   with captions and a lightbox viewer.
 - **Pan & zoom** — scroll to zoom, drag to pan, with zoom buttons.
 - **Persistence** — everything is saved locally in the browser via IndexedDB,
   so your map survives reloads with no backend required.
-- **Export / Import** — download your regions (including photos) as a JSON
-  file, and re-import it later or on another device.
+- **Export / Import** — download your regions, custom borders, and photos as
+  a JSON file, and re-import it later or on another device.
 
 ## Getting started
 
@@ -37,9 +46,13 @@ Open [http://localhost:3000](http://localhost:3000).
   Country names are resolved via `src/lib/data/countryNames.json`, generated
   once with `node scripts/generate-country-names.mjs` (re-run it if you swap
   in a different topology).
-- **State**: [`zustand`](https://github.com/pmndrs/zustand) holds regions and
-  their assigned countries, persisted to IndexedDB via `idb-keyval` so data
-  survives refreshes without a server.
+- **State**: [`zustand`](https://github.com/pmndrs/zustand) holds regions,
+  custom borders, and their assigned countries, persisted to IndexedDB via
+  `idb-keyval` so data survives refreshes without a server.
+- **Custom borders**: drawing uses `react-simple-maps`' `useMapContext`/
+  `useZoomPanContext` hooks to invert click coordinates through the current
+  projection and zoom/pan transform into `[lon, lat]`, so shapes are stored
+  zoom-independent and re-project correctly at any zoom level.
 - **Photos**: images are downscaled and JPEG-compressed in the browser
   (`src/lib/image.ts`) before being stored as data URLs, keeping IndexedDB
   usage reasonable.

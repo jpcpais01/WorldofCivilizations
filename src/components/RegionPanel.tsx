@@ -2,27 +2,34 @@
 
 import { useState } from "react";
 import { useMapStore } from "@/lib/store";
-import { getCountryName } from "@/lib/countries";
+import { useEntityName } from "@/lib/entityName";
 import PhotoGallery from "@/components/PhotoGallery";
 import type { Region } from "@/lib/types";
 
-function RegionRow({ region }: { region: Region }) {
+function RegionRow({ region, nested = false }: { region: Region; nested?: boolean }) {
   const activeRegionId = useMapStore((s) => s.activeRegionId);
   const setActiveRegion = useMapStore((s) => s.setActiveRegion);
   const updateRegion = useMapStore((s) => s.updateRegion);
   const deleteRegion = useMapStore((s) => s.deleteRegion);
+  const entityName = useEntityName();
 
   const isOpen = activeRegionId === region.id;
   const [nameDraft, setNameDraft] = useState(region.name);
 
   const handleDelete = () => {
-    if (confirm(`Delete "${region.name}"? Its countries become unassigned.`)) {
+    const msg =
+      region.tier === 1
+        ? `Delete "${region.name}"? Its tier-2 sub-regions and all painted countries/borders will be unassigned too.`
+        : `Delete "${region.name}"? Its countries/borders become unassigned.`;
+    if (confirm(msg)) {
       deleteRegion(region.id);
     }
   };
 
   return (
-    <div className="rounded-lg border border-white/10 bg-white/[0.02] overflow-hidden">
+    <div
+      className={`overflow-hidden rounded-lg border border-white/10 bg-white/[0.02] ${nested ? "ml-4" : ""}`}
+    >
       <button
         onClick={() => setActiveRegion(isOpen ? null : region.id)}
         className={`flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition ${
@@ -37,9 +44,14 @@ function RegionRow({ region }: { region: Region }) {
           className="h-6 w-6 flex-none cursor-pointer rounded border border-white/20 bg-transparent p-0"
         />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium text-white">{region.name}</div>
+          <div className="flex items-center gap-1.5">
+            <span className="truncate text-sm font-medium text-white">{region.name}</span>
+            <span className="flex-none rounded bg-white/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-white/50">
+              T{region.tier}
+            </span>
+          </div>
           <div className="text-xs text-white/40">
-            {region.countryIds.length} {region.countryIds.length === 1 ? "country" : "countries"}
+            {region.countryIds.length} {region.countryIds.length === 1 ? "entity" : "entities"}
             {region.photos.length > 0 && ` · ${region.photos.length} photos`}
           </div>
         </div>
@@ -76,7 +88,7 @@ function RegionRow({ region }: { region: Region }) {
           {region.countryIds.length > 0 && (
             <div>
               <label className="text-xs font-medium uppercase tracking-wide text-white/40">
-                Countries
+                Countries &amp; borders
               </label>
               <div className="mt-1 flex flex-wrap gap-1">
                 {region.countryIds.map((id) => (
@@ -84,7 +96,7 @@ function RegionRow({ region }: { region: Region }) {
                     key={id}
                     className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/70"
                   >
-                    {getCountryName(id)}
+                    {entityName(id)}
                   </span>
                 ))}
               </div>
@@ -112,9 +124,18 @@ export default function RegionPanel() {
   const addRegion = useMapStore((s) => s.addRegion);
   const paintMode = useMapStore((s) => s.paintMode);
   const [newName, setNewName] = useState("");
+  const [newTier, setNewTier] = useState<1 | 2>(1);
+  const [newParentId, setNewParentId] = useState<string>("");
+
+  const tier1Regions = regions.filter((r) => r.tier === 1);
+  const tier2Regions = regions.filter((r) => r.tier === 2);
 
   const handleAdd = () => {
-    addRegion(newName || `Region ${regions.length + 1}`);
+    if (newTier === 2 && !newParentId) return;
+    addRegion(newName || `Region ${regions.length + 1}`, {
+      tier: newTier,
+      parentId: newTier === 2 ? newParentId : null,
+    });
     setNewName("");
   };
 
@@ -126,20 +147,62 @@ export default function RegionPanel() {
         </h2>
       </div>
 
-      <div className="flex gap-1.5 p-3">
-        <input
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-          placeholder="New region name…"
-          className="min-w-0 flex-1 rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5 text-sm text-white outline-none focus:border-white/30"
-        />
-        <button
-          onClick={handleAdd}
-          className="flex-none rounded-md bg-emerald-500 px-3 py-1.5 text-sm font-medium text-black hover:bg-emerald-400"
-        >
-          + Add
-        </button>
+      <div className="space-y-1.5 p-3">
+        <div className="flex gap-1.5">
+          <input
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+            placeholder="New region name…"
+            className="min-w-0 flex-1 rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5 text-sm text-white outline-none focus:border-white/30"
+          />
+          <button
+            onClick={handleAdd}
+            disabled={newTier === 2 && !newParentId}
+            className="flex-none rounded-md bg-emerald-500 px-3 py-1.5 text-sm font-medium text-black hover:bg-emerald-400 disabled:opacity-40"
+          >
+            + Add
+          </button>
+        </div>
+
+        <div className="flex gap-1.5">
+          <div className="flex flex-1 overflow-hidden rounded-md border border-white/10">
+            <button
+              onClick={() => setNewTier(1)}
+              className={`flex-1 py-1 text-xs font-medium ${
+                newTier === 1 ? "bg-white/15 text-white" : "text-white/50 hover:bg-white/5"
+              }`}
+            >
+              Tier 1
+            </button>
+            <button
+              onClick={() => setNewTier(2)}
+              disabled={tier1Regions.length === 0}
+              className={`flex-1 py-1 text-xs font-medium disabled:opacity-30 ${
+                newTier === 2 ? "bg-white/15 text-white" : "text-white/50 hover:bg-white/5"
+              }`}
+            >
+              Tier 2
+            </button>
+          </div>
+          {newTier === 2 && (
+            <select
+              value={newParentId}
+              onChange={(e) => setNewParentId(e.target.value)}
+              className="flex-1 rounded-md border border-white/10 bg-white/5 px-2 text-xs text-white outline-none focus:border-white/30"
+            >
+              <option value="">Inside which Tier 1?</option>
+              {tier1Regions.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+        {newTier === 2 && tier1Regions.length === 0 && (
+          <div className="text-xs text-amber-400/80">Create a Tier 1 region first.</div>
+        )}
       </div>
 
       {paintMode && regions.length === 0 && (
@@ -154,7 +217,16 @@ export default function RegionPanel() {
             No regions yet. Add one above to start painting.
           </div>
         ) : (
-          regions.map((region) => <RegionRow key={region.id} region={region} />)
+          tier1Regions.map((region) => (
+            <div key={region.id} className="space-y-2">
+              <RegionRow region={region} />
+              {tier2Regions
+                .filter((child) => child.parentId === region.id)
+                .map((child) => (
+                  <RegionRow key={child.id} region={child} nested />
+                ))}
+            </div>
+          ))
         )}
       </div>
     </div>

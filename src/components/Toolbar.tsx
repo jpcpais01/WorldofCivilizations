@@ -1,21 +1,28 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useMapStore } from "@/lib/store";
 
 export default function Toolbar() {
   const paintMode = useMapStore((s) => s.paintMode);
   const eraseMode = useMapStore((s) => s.eraseMode);
+  const drawMode = useMapStore((s) => s.drawMode);
+  const drawPoints = useMapStore((s) => s.drawPoints);
   const activeRegionId = useMapStore((s) => s.activeRegionId);
   const regions = useMapStore((s) => s.regions);
   const togglePaintMode = useMapStore((s) => s.togglePaintMode);
   const setEraseMode = useMapStore((s) => s.setEraseMode);
+  const setDrawMode = useMapStore((s) => s.setDrawMode);
+  const undoDrawPoint = useMapStore((s) => s.undoDrawPoint);
+  const cancelDrawing = useMapStore((s) => s.cancelDrawing);
+  const finishDrawing = useMapStore((s) => s.finishDrawing);
   const exportData = useMapStore((s) => s.exportData);
   const importData = useMapStore((s) => s.importData);
   const resetAll = useMapStore((s) => s.resetAll);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeRegion = regions.find((r) => r.id === activeRegionId);
+  const [borderName, setBorderName] = useState("");
 
   const handleExport = () => {
     const json = exportData();
@@ -42,13 +49,23 @@ export default function Toolbar() {
   };
 
   const handleReset = () => {
-    if (confirm("Erase all regions, paint, and photos? This cannot be undone.")) {
+    if (confirm("Erase all regions, custom borders, paint, and photos? This cannot be undone.")) {
       resetAll();
     }
   };
 
+  const handleFinishDrawing = () => {
+    finishDrawing(borderName);
+    setBorderName("");
+  };
+
+  const handleCancelDrawing = () => {
+    cancelDrawing();
+    setBorderName("");
+  };
+
   return (
-    <header className="flex h-14 flex-none items-center gap-3 border-b border-white/10 bg-[#0d1117] px-4">
+    <header className="flex h-14 flex-none flex-wrap items-center gap-3 border-b border-white/10 bg-[#0d1117] px-4">
       <div className="flex items-center gap-2">
         <span className="text-xl">🌍</span>
         <h1 className="text-sm font-semibold text-white/90">World Painter</h1>
@@ -58,7 +75,8 @@ export default function Toolbar() {
 
       <button
         onClick={togglePaintMode}
-        className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+        disabled={drawMode}
+        className={`rounded-md px-3 py-1.5 text-sm font-medium transition disabled:opacity-40 ${
           paintMode
             ? "bg-emerald-500 text-black hover:bg-emerald-400"
             : "bg-white/10 text-white/80 hover:bg-white/20"
@@ -67,7 +85,7 @@ export default function Toolbar() {
         {paintMode ? "✓ Painting" : "Paint Mode"}
       </button>
 
-      {paintMode && (
+      {paintMode && !drawMode && (
         <>
           <button
             onClick={() => setEraseMode(!eraseMode)}
@@ -82,7 +100,7 @@ export default function Toolbar() {
 
           <div className="flex items-center gap-2 text-sm text-white/70">
             {eraseMode ? (
-              <span>Click countries to unassign them</span>
+              <span>Click countries or borders to unassign them</span>
             ) : activeRegion ? (
               <span className="flex items-center gap-1.5">
                 Painting
@@ -91,12 +109,62 @@ export default function Toolbar() {
                   style={{ backgroundColor: activeRegion.color }}
                 />
                 <strong className="text-white">{activeRegion.name}</strong>
+                <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-white/50">
+                  Tier {activeRegion.tier}
+                </span>
               </span>
             ) : (
               <span className="text-amber-400">Select a region in the sidebar to paint with</span>
             )}
           </div>
         </>
+      )}
+
+      <div className="mx-1 h-6 w-px bg-white/10" />
+
+      <button
+        onClick={() => setDrawMode(!drawMode)}
+        className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+          drawMode
+            ? "bg-amber-400 text-black hover:bg-amber-300"
+            : "bg-white/10 text-white/80 hover:bg-white/20"
+        }`}
+      >
+        {drawMode ? "✓ Drawing" : "Draw Border"}
+      </button>
+
+      {drawMode && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-white/60">
+            {drawPoints.length} point{drawPoints.length === 1 ? "" : "s"}
+          </span>
+          <input
+            value={borderName}
+            onChange={(e) => setBorderName(e.target.value)}
+            placeholder="Border name…"
+            className="w-36 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-sm text-white outline-none focus:border-white/30"
+          />
+          <button
+            onClick={undoDrawPoint}
+            disabled={drawPoints.length === 0}
+            className="rounded-md bg-white/10 px-2.5 py-1 text-sm text-white/80 hover:bg-white/20 disabled:opacity-40"
+          >
+            Undo
+          </button>
+          <button
+            onClick={handleFinishDrawing}
+            disabled={drawPoints.length < 3}
+            className="rounded-md bg-emerald-500 px-2.5 py-1 text-sm font-medium text-black hover:bg-emerald-400 disabled:opacity-40"
+          >
+            Finish
+          </button>
+          <button
+            onClick={handleCancelDrawing}
+            className="rounded-md px-2.5 py-1 text-sm text-red-400/80 hover:bg-red-500/10 hover:text-red-400"
+          >
+            Cancel
+          </button>
+        </div>
       )}
 
       <div className="flex-1" />
