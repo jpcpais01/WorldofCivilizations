@@ -21,8 +21,11 @@ interface MapStore {
   drawPoints: [number, number][];
   selectedCountryId: string | null;
   hasHydrated: boolean;
+  sidebarOpen: boolean;
 
   setHasHydrated: (v: boolean) => void;
+  setSidebarOpen: (v: boolean) => void;
+  toggleSidebar: () => void;
   addRegion: (name: string, opts?: AddRegionOptions) => string;
   updateRegion: (id: string, patch: Partial<Pick<Region, "name" | "color" | "description">>) => void;
   deleteRegion: (id: string) => void;
@@ -65,8 +68,11 @@ export const useMapStore = create<MapStore>()(
       drawPoints: [],
       selectedCountryId: null,
       hasHydrated: false,
+      sidebarOpen: false,
 
       setHasHydrated: (v) => set({ hasHydrated: v }),
+      setSidebarOpen: (v) => set({ sidebarOpen: v }),
+      toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
 
       addRegion: (name, opts) => {
         const id = uuid();

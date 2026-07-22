@@ -74,7 +74,7 @@ export default function PhotoGallery({ regionId, photos }: { regionId: string; p
 
       {lightboxPhoto && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-6"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-3 sm:p-6"
           onClick={() => setLightboxPhoto(null)}
         >
           <div
@@ -85,9 +85,9 @@ export default function PhotoGallery({ regionId, photos }: { regionId: string; p
             <img
               src={lightboxPhoto.dataUrl}
               alt={lightboxPhoto.caption || "Region photo"}
-              className="max-h-[70vh] w-full object-contain bg-black"
+              className="max-h-[55vh] w-full object-contain bg-black sm:max-h-[70vh]"
             />
-            <div className="flex items-center gap-2 p-3">
+            <div className="flex flex-wrap items-center gap-2 p-2.5 sm:p-3">
               <input
                 value={lightboxPhoto.caption}
                 onChange={(e) => {
@@ -96,20 +96,20 @@ export default function PhotoGallery({ regionId, photos }: { regionId: string; p
                   updatePhotoCaption(regionId, lightboxPhoto.id, caption);
                 }}
                 placeholder="Add a caption…"
-                className="flex-1 rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5 text-sm text-white outline-none focus:border-white/30"
+                className="min-w-[140px] flex-1 rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5 text-sm text-white outline-none focus:border-white/30"
               />
               <button
                 onClick={() => {
                   removePhoto(regionId, lightboxPhoto.id);
                   setLightboxPhoto(null);
                 }}
-                className="rounded-md bg-red-500/10 px-2.5 py-1.5 text-sm text-red-400 hover:bg-red-500/20"
+                className="flex-none rounded-md bg-red-500/10 px-2.5 py-1.5 text-sm text-red-400 hover:bg-red-500/20"
               >
                 Delete
               </button>
               <button
                 onClick={() => setLightboxPhoto(null)}
-                className="rounded-md bg-white/10 px-2.5 py-1.5 text-sm text-white/80 hover:bg-white/20"
+                className="flex-none rounded-md bg-white/10 px-2.5 py-1.5 text-sm text-white/80 hover:bg-white/20"
               >
                 Close
               </button>

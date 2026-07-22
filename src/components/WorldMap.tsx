@@ -148,7 +148,13 @@ export default function WorldMap() {
   const setSelectedCountry = useMapStore((s) => s.setSelectedCountry);
 
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
-  const [zoom, setZoom] = useState(1);
+  // On narrow/portrait screens the world's landscape shape leaves big empty
+  // margins at zoom 1 - start a little more zoomed in so the map fills the
+  // screen like a normal mobile map app. This component only ever mounts
+  // client-side (gated by hasHydrated), so reading window here is safe.
+  const [zoom, setZoom] = useState(() =>
+    typeof window !== "undefined" && window.innerWidth < 768 && window.innerHeight > window.innerWidth ? 2 : 1
+  );
   const [center, setCenter] = useState<[number, number]>([0, 20]);
 
   const regionsFor = useCallback(
@@ -182,6 +188,7 @@ export default function WorldMap() {
     <div className="relative h-full w-full select-none overflow-hidden bg-[#161b22]">
       <ComposableMap
         projectionConfig={{ scale: 155 }}
+        preserveAspectRatio="xMidYMid slice"
         className="h-full w-full"
         style={{ width: "100%", height: "100%" }}
       >
