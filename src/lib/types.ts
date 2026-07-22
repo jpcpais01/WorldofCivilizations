@@ -23,6 +23,8 @@ export interface Region {
 export interface CustomBorder {
   id: string;
   name: string;
+  /** Outline color, and fill tint when not assigned to a region. */
+  color: string;
   /** Closed polygon, stored as [lon, lat] pairs. */
   points: [number, number][];
   createdAt: number;

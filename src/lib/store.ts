@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { v4 as uuid } from "uuid";
 import { idbStorage } from "@/lib/idbStorage";
-import { nextPaletteColor } from "@/lib/palette";
+import { nextPaletteColor, DEFAULT_BORDER_COLOR } from "@/lib/palette";
 import type { CustomBorder, ExportedData, Photo, Region, Tier } from "@/lib/types";
 
 interface AddRegionOptions {
@@ -46,6 +46,7 @@ interface MapStore {
   cancelDrawing: () => void;
   finishDrawing: (name?: string) => void;
   renameCustomBorder: (id: string, name: string) => void;
+  updateCustomBorderColor: (id: string, color: string) => void;
   deleteCustomBorder: (id: string) => void;
 
   addPhoto: (regionId: string, photo: Omit<Photo, "id">) => void;
@@ -196,6 +197,7 @@ export const useMapStore = create<MapStore>()(
         const border: CustomBorder = {
           id: `cb-${uuid()}`,
           name: name?.trim() || `Custom Border ${get().customBorders.length + 1}`,
+          color: DEFAULT_BORDER_COLOR,
           points,
           createdAt: Date.now(),
         };
@@ -205,6 +207,11 @@ export const useMapStore = create<MapStore>()(
       renameCustomBorder: (id, name) =>
         set((s) => ({
           customBorders: s.customBorders.map((b) => (b.id === id ? { ...b, name: name.trim() || b.name } : b)),
+        })),
+
+      updateCustomBorderColor: (id, color) =>
+        set((s) => ({
+          customBorders: s.customBorders.map((b) => (b.id === id ? { ...b, color } : b)),
         })),
 
       deleteCustomBorder: (id) =>
@@ -268,7 +275,9 @@ export const useMapStore = create<MapStore>()(
             tier: r.tier === 2 ? 2 : 1,
             parentId: r.tier === 2 ? r.parentId ?? null : null,
           }));
-          const customBorders: CustomBorder[] = Array.isArray(parsed.customBorders) ? parsed.customBorders : [];
+          const customBorders: CustomBorder[] = Array.isArray(parsed.customBorders)
+            ? parsed.customBorders.map((b) => ({ ...b, color: b.color || DEFAULT_BORDER_COLOR }))
+            : [];
           set({ regions, customBorders, activeRegionId: null });
           return { ok: true };
         } catch {

@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { useMapStore } from "@/lib/store";
+import { DEFAULT_BORDER_COLOR } from "@/lib/palette";
 import type { CustomBorder } from "@/lib/types";
 
 function CustomBorderRow({ border }: { border: CustomBorder }) {
   const renameCustomBorder = useMapStore((s) => s.renameCustomBorder);
+  const updateCustomBorderColor = useMapStore((s) => s.updateCustomBorderColor);
   const deleteCustomBorder = useMapStore((s) => s.deleteCustomBorder);
   const regions = useMapStore((s) => s.regions);
   const [name, setName] = useState(border.name);
@@ -21,9 +23,12 @@ function CustomBorderRow({ border }: { border: CustomBorder }) {
 
   return (
     <div className="flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.02] px-2.5 py-2">
-      <span
-        className="h-3 w-3 flex-none rounded-sm border border-amber-300/60"
-        style={{ backgroundColor: tier2?.color ?? tier1?.color ?? "transparent" }}
+      <input
+        type="color"
+        value={border.color || DEFAULT_BORDER_COLOR}
+        onChange={(e) => updateCustomBorderColor(border.id, e.target.value)}
+        title="Border outline color"
+        className="h-6 w-6 flex-none cursor-pointer rounded border border-white/20 bg-transparent p-0"
       />
       <input
         value={name}
@@ -31,6 +36,16 @@ function CustomBorderRow({ border }: { border: CustomBorder }) {
         onBlur={() => renameCustomBorder(border.id, name)}
         className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none"
       />
+      {(tier1 || tier2) && (
+        <span className="flex flex-none items-center gap-0.5" title="Painted region(s)">
+          {tier1 && (
+            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: tier1.color }} />
+          )}
+          {tier2 && (
+            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: tier2.color }} />
+          )}
+        </span>
+      )}
       <button
         onClick={handleDelete}
         className="flex-none text-white/30 hover:text-red-400"

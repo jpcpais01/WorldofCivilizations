@@ -11,14 +11,14 @@ import {
 } from "react-simple-maps";
 import { useMapStore } from "@/lib/store";
 import { getCountryKey, getCountryName, isPaintable, COUNTRIES_TOPOLOGY_URL } from "@/lib/countries";
+import { DEFAULT_BORDER_COLOR } from "@/lib/palette";
 import type { CustomBorder, Region } from "@/lib/types";
 
 const UNASSIGNED_FILL = "#2a3441";
 const UNASSIGNED_HOVER = "#3a4759";
 const STROKE = "#0d1117";
-const CUSTOM_UNASSIGNED_FILL = "rgba(242, 193, 78, 0.12)";
-const CUSTOM_STROKE = "#f2c14e";
-const DRAW_COLOR = "#f2c14e";
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 20;
 
 interface TooltipState {
   x: number;
@@ -30,6 +30,26 @@ interface TooltipState {
 
 function regionLabel(tier1?: Region, tier2?: Region): Pick<TooltipState, "tier1Name" | "tier2Name"> {
   return { tier1Name: tier1?.name, tier2Name: tier2?.name };
+}
+
+/** Converts a pointer event anywhere in the map to [lon, lat], correctly
+ * accounting for the SVG's viewBox scaling (incl. preserveAspectRatio) and
+ * the current pan/zoom transform - via the browser's own screen CTM rather
+ * than hand-rolled math, so it stays exact at any zoom/aspect ratio. */
+function eventToLonLat(
+  evt: { clientX: number; clientY: number; currentTarget: EventTarget },
+  projection: { invert?: (p: [number, number]) => [number, number] | null }
+): [number, number] | null {
+  const target = evt.currentTarget as SVGGraphicsElement;
+  const svg = target.ownerSVGElement;
+  if (!svg) return null;
+  const ctm = target.getScreenCTM();
+  if (!ctm) return null;
+  const pt = svg.createSVGPoint();
+  pt.x = evt.clientX;
+  pt.y = evt.clientY;
+  const local = pt.matrixTransform(ctm.inverse());
+  return projection.invert?.([local.x, local.y]) ?? null;
 }
 
 function CustomBordersLayer({
@@ -52,6 +72,7 @@ function CustomBordersLayer({
   onLeave: () => void;
 }) {
   const { projection } = useMapContext();
+  const { k } = useZoomPanContext();
 
   return (
     <>
@@ -63,16 +84,17 @@ function CustomBordersLayer({
         const pointsAttr = projected.map((p) => p.join(",")).join(" ");
         const { tier1, tier2 } = regionsFor(border.id);
         const active = tier2 ?? tier1;
-        const fill = active ? active.color : CUSTOM_UNASSIGNED_FILL;
+        const color = border.color || DEFAULT_BORDER_COLOR;
+        const fill = active ? active.color : `${color}26`;
 
         return (
           <polygon
             key={border.id}
             points={pointsAttr}
             fill={fill}
-            stroke={CUSTOM_STROKE}
-            strokeWidth={1.1}
-            strokeDasharray="4 3"
+            stroke={color}
+            strokeWidth={0.5 / k}
+            strokeDasharray={`${2.5 / k} ${2 / k}`}
             style={{
               cursor: drawMode ? "default" : paintMode ? "crosshair" : "pointer",
               transition: "fill 120ms ease",
@@ -90,25 +112,18 @@ function CustomBordersLayer({
 }
 
 function DrawingOverlay() {
-  const { projection, width, height } = useMapContext();
-  const { x, y, k } = useZoomPanContext();
+  const { projection } = useMapContext();
+  const { k } = useZoomPanContext();
   const drawPoints = useMapStore((s) => s.drawPoints);
   const addDrawPoint = useMapStore((s) => s.addDrawPoint);
 
   const handleClick = useCallback(
     (evt: React.MouseEvent<SVGRectElement>) => {
-      const svg = (evt.target as SVGElement).ownerSVGElement;
-      if (!svg) return;
-      const rect = svg.getBoundingClientRect();
-      const vbX = ((evt.clientX - rect.left) / rect.width) * width;
-      const vbY = ((evt.clientY - rect.top) / rect.height) * height;
-      const projX = (vbX - x) / k;
-      const projY = (vbY - y) / k;
-      const lonLat = projection.invert?.([projX, projY]);
+      const lonLat = eventToLonLat(evt, projection);
       if (!lonLat) return;
-      addDrawPoint([lonLat[0], lonLat[1]]);
+      addDrawPoint(lonLat);
     },
-    [projection, width, height, x, y, k, addDrawPoint]
+    [projection, addDrawPoint]
   );
 
   const projected = drawPoints
@@ -128,10 +143,16 @@ function DrawingOverlay() {
         onClick={handleClick}
       />
       {projected.length > 1 && (
-        <polyline points={pointsAttr} fill="none" stroke={DRAW_COLOR} strokeWidth={1.5} strokeDasharray="4 3" />
+        <polyline
+          points={pointsAttr}
+          fill="none"
+          stroke={DEFAULT_BORDER_COLOR}
+          strokeWidth={0.6 / k}
+          strokeDasharray={`${2.5 / k} ${2 / k}`}
+        />
       )}
       {projected.map((p, i) => (
-        <circle key={i} cx={p[0]} cy={p[1]} r={3.5} fill={DRAW_COLOR} stroke="#0d1117" strokeWidth={1} />
+        <circle key={i} cx={p[0]} cy={p[1]} r={1.6 / k} fill={DEFAULT_BORDER_COLOR} stroke="#0d1117" strokeWidth={0.4 / k} />
       ))}
     </g>
   );
@@ -148,13 +169,7 @@ export default function WorldMap() {
   const setSelectedCountry = useMapStore((s) => s.setSelectedCountry);
 
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
-  // On narrow/portrait screens the world's landscape shape leaves big empty
-  // margins at zoom 1 - start a little more zoomed in so the map fills the
-  // screen like a normal mobile map app. This component only ever mounts
-  // client-side (gated by hasHydrated), so reading window here is safe.
-  const [zoom, setZoom] = useState(() =>
-    typeof window !== "undefined" && window.innerWidth < 768 && window.innerHeight > window.innerWidth ? 2 : 1
-  );
+  const [zoom, setZoom] = useState(1);
   const [center, setCenter] = useState<[number, number]>([0, 20]);
 
   const regionsFor = useCallback(
@@ -187,6 +202,8 @@ export default function WorldMap() {
   return (
     <div className="relative h-full w-full select-none overflow-hidden bg-[#161b22]">
       <ComposableMap
+        width={800}
+        height={420}
         projectionConfig={{ scale: 155 }}
         preserveAspectRatio="xMidYMid slice"
         className="h-full w-full"
@@ -199,8 +216,8 @@ export default function WorldMap() {
             setZoom(z);
             setCenter(coordinates);
           }}
-          minZoom={1}
-          maxZoom={8}
+          minZoom={MIN_ZOOM}
+          maxZoom={MAX_ZOOM}
         >
           <Geographies geography={COUNTRIES_TOPOLOGY_URL}>
             {({ geographies }) =>
@@ -287,14 +304,14 @@ export default function WorldMap() {
       <div className="absolute right-3 bottom-3 flex flex-col gap-1">
         <button
           className="h-8 w-8 rounded-md border border-white/10 bg-black/50 text-white/80 backdrop-blur hover:bg-black/70"
-          onClick={() => setZoom((z) => Math.min(8, z * 1.5))}
+          onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z * 1.5))}
           aria-label="Zoom in"
         >
           +
         </button>
         <button
           className="h-8 w-8 rounded-md border border-white/10 bg-black/50 text-white/80 backdrop-blur hover:bg-black/70"
-          onClick={() => setZoom((z) => Math.max(1, z / 1.5))}
+          onClick={() => setZoom((z) => Math.max(MIN_ZOOM, z / 1.5))}
           aria-label="Zoom out"
         >
           −
