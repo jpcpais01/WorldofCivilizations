@@ -8,10 +8,10 @@ and see it all rendered on a clean interactive world map.
 
 - **Real country borders** — all ~238 UN-recognized countries and territories,
   from the Natural Earth dataset (via `world-atlas`, 1:50m resolution).
-- **Custom borders** — draw your own shapes with a connected-line-segment tool
-  (click to place points, Finish to close it into a polygon). Drawn shapes
-  behave exactly like countries: paintable, nameable, and paintable into any
-  region.
+- **Custom border lines** — draw your own line with a connected-line-segment
+  tool (click to place points, Finish when done). A line actually cuts
+  whichever countries it crosses into independently paintable pieces, so you
+  can paint just one side of a country instead of the whole thing.
 - **Paint mode** — pick a region, click countries or custom shapes to add them
   to it; an erase mode to unassign.
 - **Tiered regions** — regions come in two tiers: Tier 1 (e.g. continents) and
@@ -26,7 +26,7 @@ and see it all rendered on a clean interactive world map.
 - **Pan & zoom** — scroll to zoom, drag to pan, with zoom buttons.
 - **Persistence** — everything is saved locally in the browser via IndexedDB,
   so your map survives reloads with no backend required.
-- **Export / Import** — download your regions, custom borders, and photos as
+- **Export / Import** — download your regions, border lines, and photos as
   a JSON file, and re-import it later or on another device.
 
 ## Getting started
@@ -47,12 +47,20 @@ Open [http://localhost:3000](http://localhost:3000).
   once with `node scripts/generate-country-names.mjs` (re-run it if you swap
   in a different topology).
 - **State**: [`zustand`](https://github.com/pmndrs/zustand) holds regions,
-  custom borders, and their assigned countries, persisted to IndexedDB via
-  `idb-keyval` so data survives refreshes without a server.
-- **Custom borders**: drawing uses `react-simple-maps`' `useMapContext`/
-  `useZoomPanContext` hooks to invert click coordinates through the current
-  projection and zoom/pan transform into `[lon, lat]`, so shapes are stored
-  zoom-independent and re-project correctly at any zoom level.
+  border lines, and their assigned countries/pieces, persisted to IndexedDB
+  via `idb-keyval` so data survives refreshes without a server.
+- **Drawing**: click coordinates are inverted through the current projection
+  and zoom/pan transform into `[lon, lat]` via the SVG's own screen CTM, so
+  lines are stored zoom-independent and land exactly where clicked at any
+  zoom level.
+- **Splitting**: `src/lib/splitCountries.ts` uses [Turf.js](https://turfjs.org/)
+  to cut a country's polygon wherever a line crosses it (buffering the line
+  and subtracting it), then regroups the resulting fragments — mainland,
+  islands, etc. — by which side of the line they fall on, so a click paints
+  the correct side including any offshore islands on it. Countries crossing
+  the antimeridian (Russia, Fiji, USA, New Zealand, Kiribati) fall back to
+  painting as a whole, since splitting them properly needs handling that
+  isn't implemented.
 - **Photos**: images are downscaled and JPEG-compressed in the browser
   (`src/lib/image.ts`) before being stored as data URLs, keeping IndexedDB
   usage reasonable.

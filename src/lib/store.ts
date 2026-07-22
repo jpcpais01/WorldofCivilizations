@@ -193,7 +193,7 @@ export const useMapStore = create<MapStore>()(
 
       finishDrawing: (name) => {
         const points = get().drawPoints;
-        if (points.length < 3) return;
+        if (points.length < 2) return;
         const border: CustomBorder = {
           id: `cb-${uuid()}`,
           name: name?.trim() || `Custom Border ${get().customBorders.length + 1}`,

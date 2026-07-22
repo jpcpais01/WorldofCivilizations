@@ -9,14 +9,10 @@ function CustomBorderRow({ border }: { border: CustomBorder }) {
   const renameCustomBorder = useMapStore((s) => s.renameCustomBorder);
   const updateCustomBorderColor = useMapStore((s) => s.updateCustomBorderColor);
   const deleteCustomBorder = useMapStore((s) => s.deleteCustomBorder);
-  const regions = useMapStore((s) => s.regions);
   const [name, setName] = useState(border.name);
 
-  const tier1 = regions.find((r) => r.tier === 1 && r.countryIds.includes(border.id));
-  const tier2 = regions.find((r) => r.tier === 2 && r.countryIds.includes(border.id));
-
   const handleDelete = () => {
-    if (confirm(`Delete the "${border.name}" border shape?`)) {
+    if (confirm(`Delete the "${border.name}" border line?`)) {
       deleteCustomBorder(border.id);
     }
   };
@@ -27,7 +23,7 @@ function CustomBorderRow({ border }: { border: CustomBorder }) {
         type="color"
         value={border.color || DEFAULT_BORDER_COLOR}
         onChange={(e) => updateCustomBorderColor(border.id, e.target.value)}
-        title="Border outline color"
+        title="Border line color"
         className="h-6 w-6 flex-none cursor-pointer rounded border border-white/20 bg-transparent p-0"
       />
       <input
@@ -36,16 +32,6 @@ function CustomBorderRow({ border }: { border: CustomBorder }) {
         onBlur={() => renameCustomBorder(border.id, name)}
         className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none"
       />
-      {(tier1 || tier2) && (
-        <span className="flex flex-none items-center gap-0.5" title="Painted region(s)">
-          {tier1 && (
-            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: tier1.color }} />
-          )}
-          {tier2 && (
-            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: tier2.color }} />
-          )}
-        </span>
-      )}
       <button
         onClick={handleDelete}
         className="flex-none text-white/30 hover:text-red-400"
@@ -65,8 +51,11 @@ export default function CustomBorderPanel() {
   return (
     <div className="border-t border-white/10 px-3 py-3">
       <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/50">
-        Custom Borders ({customBorders.length})
+        Border Lines ({customBorders.length})
       </h2>
+      <p className="mb-2 text-xs text-white/40">
+        Drawn lines split whichever countries they cross, so you can paint just one side.
+      </p>
       <div className="max-h-48 space-y-1.5 overflow-y-auto">
         {customBorders.map((border) => (
           <CustomBorderRow key={border.id} border={border} />

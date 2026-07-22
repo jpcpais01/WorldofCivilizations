@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { feature as topoFeature } from "topojson-client";
+import type { Feature, FeatureCollection, Polygon, MultiPolygon } from "geojson";
 import {
   ComposableMap,
   Geographies,
@@ -12,6 +14,7 @@ import {
 import { useMapStore } from "@/lib/store";
 import { getCountryKey, getCountryName, isPaintable, COUNTRIES_TOPOLOGY_URL } from "@/lib/countries";
 import { DEFAULT_BORDER_COLOR } from "@/lib/palette";
+import { splitCountryByLines, type SplitPiece } from "@/lib/splitCountries";
 import type { CustomBorder, Region } from "@/lib/types";
 
 const UNASSIGNED_FILL = "#2a3441";
@@ -52,25 +55,98 @@ function eventToLonLat(
   return projection.invert?.([local.x, local.y]) ?? null;
 }
 
-function CustomBordersLayer({
-  customBorders,
+/** Manually projects a Polygon's rings into an SVG path string, instead of
+ * going through d3-geo's path()/antimeridian pre-clip - which can badly
+ * misrender an otherwise-valid small polygon fragment produced by polygon
+ * clipping, tracing a huge stray shape across the whole map. Our country
+ * data never needs adaptive resampling or antimeridian handling here (those
+ * countries are already excluded before splitting is attempted). */
+function polygonToPath(
+  rings: [number, number][][],
+  projection: (p: [number, number]) => [number, number] | null
+): string {
+  return rings
+    .map((ring) => {
+      const projected = ring.map((p) => projection(p)).filter((p): p is [number, number] => !!p);
+      if (projected.length < 3) return "";
+      return `M${projected.map((p) => p.join(",")).join("L")}Z`;
+    })
+    .filter(Boolean)
+    .join(" ");
+}
+
+/** Renders the pieces of any country that a custom border line has cut through,
+ * each independently paintable - this is what makes a hand-drawn line actually
+ * split a country instead of the whole country always painting as one unit. */
+function SplitPieceLayer({
+  splitsByCountry,
   regionsFor,
-  paintMode,
   drawMode,
+  cursor,
   onClick,
   onHover,
   onMove,
   onLeave,
 }: {
-  customBorders: CustomBorder[];
+  splitsByCountry: Record<string, SplitPiece[]>;
   regionsFor: (id: string) => { tier1?: Region; tier2?: Region };
-  paintMode: boolean;
   drawMode: boolean;
+  cursor: string;
   onClick: (id: string) => void;
   onHover: (evt: React.MouseEvent, id: string, name: string, tier1?: Region, tier2?: Region) => void;
   onMove: (evt: React.MouseEvent) => void;
   onLeave: () => void;
 }) {
+  const { projection } = useMapContext();
+
+  return (
+    <>
+      {Object.entries(splitsByCountry).map(([countryKey, pieces]) =>
+        pieces.map((piece, i) => {
+          const { tier1, tier2 } = regionsFor(piece.id);
+          const active = tier2 ?? tier1;
+          const name = `${getCountryName(countryKey)} · part ${i + 1}`;
+          const fill = active ? active.color : UNASSIGNED_FILL;
+
+          return piece.features.map((fragment, j) => {
+            const d = polygonToPath(fragment.geometry.coordinates as [number, number][][], projection);
+            if (!d) return null;
+            return (
+              <path
+                key={`${piece.id}-${j}`}
+                d={d}
+                fill={fill}
+                stroke={STROKE}
+                strokeWidth={0.4}
+                style={{
+                  outline: "none",
+                  transition: "fill 120ms ease",
+                  cursor: drawMode ? "default" : cursor,
+                  pointerEvents: drawMode ? "none" : "auto",
+                }}
+                onMouseEnter={(evt) => {
+                  (evt.currentTarget as SVGPathElement).style.filter = "brightness(1.2)";
+                  onHover(evt, piece.id, name, tier1, tier2);
+                }}
+                onMouseMove={onMove}
+                onMouseLeave={(evt) => {
+                  (evt.currentTarget as SVGPathElement).style.filter = "";
+                  onLeave();
+                }}
+                onClick={() => onClick(piece.id)}
+              />
+            );
+          });
+        })
+      )}
+    </>
+  );
+}
+
+/** Purely visual overlay for drawn border lines - open polylines, not
+ * paintable areas. Their effect on painting comes from splitting whichever
+ * countries they cross (see SplitPieceLayer), not from being clicked directly. */
+function CustomLinesLayer({ customBorders }: { customBorders: CustomBorder[] }) {
   const { projection } = useMapContext();
   const { k } = useZoomPanContext();
 
@@ -80,30 +156,20 @@ function CustomBordersLayer({
         const projected = border.points
           .map((p) => projection(p))
           .filter((p): p is [number, number] => !!p);
-        if (projected.length < 3) return null;
+        if (projected.length < 2) return null;
         const pointsAttr = projected.map((p) => p.join(",")).join(" ");
-        const { tier1, tier2 } = regionsFor(border.id);
-        const active = tier2 ?? tier1;
         const color = border.color || DEFAULT_BORDER_COLOR;
-        const fill = active ? active.color : `${color}26`;
 
         return (
-          <polygon
+          <polyline
             key={border.id}
             points={pointsAttr}
-            fill={fill}
+            fill="none"
             stroke={color}
-            strokeWidth={0.5 / k}
-            strokeDasharray={`${2.5 / k} ${2 / k}`}
-            style={{
-              cursor: drawMode ? "default" : paintMode ? "crosshair" : "pointer",
-              transition: "fill 120ms ease",
-              pointerEvents: drawMode ? "none" : "auto",
-            }}
-            onMouseEnter={(evt) => onHover(evt, border.id, border.name, tier1, tier2)}
-            onMouseMove={onMove}
-            onMouseLeave={onLeave}
-            onClick={() => onClick(border.id)}
+            strokeWidth={0.6 / k}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ pointerEvents: "none" }}
           />
         );
       })}
@@ -148,7 +214,8 @@ function DrawingOverlay() {
           fill="none"
           stroke={DEFAULT_BORDER_COLOR}
           strokeWidth={0.6 / k}
-          strokeDasharray={`${2.5 / k} ${2 / k}`}
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
       )}
       {projected.map((p, i) => (
@@ -171,6 +238,43 @@ export default function WorldMap() {
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   const [zoom, setZoom] = useState(1);
   const [center, setCenter] = useState<[number, number]>([0, 20]);
+  const [countryFeatures, setCountryFeatures] = useState<Feature<Polygon | MultiPolygon>[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(COUNTRIES_TOPOLOGY_URL)
+      .then((r) => r.json())
+      .then((topology: { objects: Record<string, unknown> }) => {
+        if (cancelled) return;
+        const fc = topoFeature(topology as never, topology.objects.countries as never) as unknown as FeatureCollection<
+          Polygon | MultiPolygon
+        >;
+        setCountryFeatures(fc.features);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Recompute which countries a custom line actually cuts through whenever
+  // the drawn lines change. Countries with no intersecting line are left out
+  // entirely and keep rendering/painting as a single whole country.
+  const splitsByCountry = useMemo(() => {
+    const result: Record<string, SplitPiece[]> = {};
+    if (customBorders.length === 0 || countryFeatures.length === 0) return result;
+    for (const feature of countryFeatures) {
+      const key = getCountryKey({
+        rsmKey: "",
+        id: feature.id !== undefined ? String(feature.id) : undefined,
+        properties: feature.properties || undefined,
+      });
+      if (!isPaintable(key)) continue;
+      const pieces = splitCountryByLines(key, feature.geometry, customBorders);
+      if (pieces) result[key] = pieces;
+    }
+    return result;
+  }, [customBorders, countryFeatures]);
 
   const regionsFor = useCallback(
     (id: string) => ({
@@ -225,6 +329,7 @@ export default function WorldMap() {
               geographies.map((geo) => {
                 const key = getCountryKey(geo);
                 if (!isPaintable(key)) return null;
+                if (splitsByCountry[key]) return null; // rendered by SplitPieceLayer instead
                 const { tier1, tier2 } = regionsFor(key);
                 const active = tier2 ?? tier1;
                 const name = getCountryName(key, geo.properties?.name as string | undefined);
@@ -263,11 +368,11 @@ export default function WorldMap() {
             }
           </Geographies>
 
-          <CustomBordersLayer
-            customBorders={customBorders}
+          <SplitPieceLayer
+            splitsByCountry={splitsByCountry}
             regionsFor={regionsFor}
-            paintMode={paintMode}
             drawMode={drawMode}
+            cursor={cursor}
             onClick={handleClick}
             onHover={(evt, id, name, tier1, tier2) =>
               setTooltip({ x: evt.clientX, y: evt.clientY, name, ...regionLabel(tier1, tier2) })
@@ -275,6 +380,8 @@ export default function WorldMap() {
             onMove={(evt) => setTooltip((t) => (t ? { ...t, x: evt.clientX, y: evt.clientY } : t))}
             onLeave={() => setTooltip(null)}
           />
+
+          <CustomLinesLayer customBorders={customBorders} />
 
           {drawMode && <DrawingOverlay />}
         </ZoomableGroup>
@@ -293,7 +400,7 @@ export default function WorldMap() {
 
       {drawMode && (
         <div className="pointer-events-none absolute bottom-3 left-3 rounded-md bg-black/40 px-2.5 py-1 text-xs text-amber-300 backdrop-blur">
-          Click to place points &middot; use Finish/Undo/Cancel in the toolbar
+          Click to place points along your border line &middot; use Finish/Undo/Cancel in the toolbar
         </div>
       )}
       {!drawMode && (

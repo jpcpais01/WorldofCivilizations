@@ -191,7 +191,7 @@ export default function Toolbar() {
             </button>
             <button
               onClick={handleFinishDrawing}
-              disabled={drawPoints.length < 3}
+              disabled={drawPoints.length < 2}
               className="flex-none rounded-md bg-emerald-500 px-2.5 py-1 text-sm font-medium whitespace-nowrap text-black hover:bg-emerald-400 disabled:opacity-40"
             >
               Finish
